@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -28,6 +29,12 @@ func generateShortCode(url string) string {
 type CreateRequest struct {
 	URL           string `json:"url" binding:"required"`
 	ExpiryMinutes int    `json:"expiry_minutes"`
+}
+
+type CachedURL struct {
+	LongURL   string    `json:"long_url"`
+	IsActive  bool      `json:"is_active"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 func main() {
@@ -91,7 +98,6 @@ func main() {
 			req.URL,
 			time.Duration(req.ExpiryMinutes)*time.Minute,
 		).Err()
-
 		if err != nil {
 			log.Println("Redis write failed:", err)
 		}
@@ -109,18 +115,34 @@ func main() {
 		// 1️⃣ Try Redis first
 		val, err := rdb.Get(ctx, code).Result()
 		if err == nil {
-			c.JSON(http.StatusOK, gin.H{"url": val})
-			return
+			var cached CachedURL
+			err := json.Unmarshal([]byte(val), &cached)
+			if err == nil {
+
+				if !cached.IsActive {
+					c.JSON(http.StatusGone, gin.H{"error": "Url deleted"})
+					return
+				}
+
+				if time.Now().After(cached.ExpiresAt) {
+					c.JSON(http.StatusGone, gin.H{"error": "Link expired"})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{"url": cached.LongURL})
+				return
+			}
 		}
 
 		// 2️⃣ Fallback to MySQL
 		var longURL string
 		var expiresAt time.Time
+		var isActive bool
 
 		err = db.QueryRow(
 			"SELECT long_url, expires_at FROM urls WHERE short_code = ?",
 			code,
-		).Scan(&longURL, &expiresAt)
+		).Scan(&longURL, &expiresAt, &isActive)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
@@ -132,6 +154,10 @@ func main() {
 			return
 		}
 
+		if !isActive {
+			c.JSON(http.StatusGone, gin.H{"error": "Url deleted"})
+			return
+		}
 		// Expiry check
 		if time.Now().After(expiresAt) {
 			c.JSON(http.StatusGone, gin.H{"error": "Link expired"})
@@ -147,5 +173,34 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"url": longURL})
 	})
 
+	// soft delete url
+	r.DELETE("/urls/:code", func(c *gin.Context) {
+		code := c.Param("code")
+		// delete from database
+		result, err := db.Exec(`
+			UPDATE urls
+			SET is_active = false
+			WHERE short_url = $1
+		`, code)
+
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Database error for removing url"})
+			return
+		}
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			c.JSON(404, gin.H{"error": "Url not found"})
+			return
+		}
+
+		// remove from cache
+		err = rdb.Del(ctx, code).Err()
+
+		if err != nil {
+			log.Println("Failed to clear cache")
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Url deleted successfully"})
+	})
 	r.Run(":8080")
 }
