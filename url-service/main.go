@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"urlshortener/middleware"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -61,6 +62,7 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(middleware.RequestLogger()) // added logger middleware
 
 	// Create short URL
 	r.POST("/shorten", func(c *gin.Context) {
