@@ -67,7 +67,7 @@ def simple_malicious_model(url: str, ip: str) -> float:
 # Track Click
 # -----------------------------
 
-@app.post("/track")
+@app.post("/track") #use redis queue or kafka for asynchronous event emittion to and from url-service(Go)
 def track_click(event: ClickEvent):
     clicks[event.code] = clicks.get(event.code, 0) + 1
 
@@ -87,7 +87,7 @@ def track_click(event: ClickEvent):
 # Get Stats
 # -----------------------------
 
-@app.get("/stats/{code}")
+@app.get("/stats/{code}") #use redis queue or kafka for asynchronous event emittion to and from url-service(Go)
 def get_stats(code: str):
     return {
         "clicks": clicks.get(code, 0)
@@ -98,7 +98,7 @@ def get_stats(code: str):
 # AI Detection Endpoint
 # -----------------------------
 
-@app.post("/ai/detect")
+@app.post("/ai/detect") #use redis queue or kafka for asynchronous event emittion to and from url-service(Go)
 def detect_malicious(request: DetectionRequest):
     fraud_score = simple_malicious_model(request.url, request.ip)
 
@@ -118,7 +118,7 @@ def detect_malicious(request: DetectionRequest):
 # List Flagged URLs
 # -----------------------------
 
-@app.get("/ai/flagged")
+@app.get("/ai/flagged") #use redis queue or kafka for asynchronous event emittion to and from url-service(Go)
 def get_flagged_urls():
     return flagged_urls
 

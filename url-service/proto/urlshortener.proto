@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package urlshortener;
+
+option go_package = "urlshortener/proto";
+
+import "google/protobuf/timestamp.proto";
+
+service URLShortener {
+  rpc ShortenURL(ShortenURLRequest) returns (ShortenURLResponse);
+  rpc ResolveURL(ResolveURLRequest) returns (ResolveURLResponse);
+  rpc DeleteURL(DeleteURLRequest) returns (DeleteURLResponse);
+}
+
+// --- ShortenURL ---
+message ShortenURLRequest {
+  string url            = 1;
+  int32  expiry_minutes = 2; // 0 defaults to 1440
+}
+
+message ShortenURLResponse {
+  string                     short_code = 1;
+  google.protobuf.Timestamp  expires_at = 2;
+}
+
+// --- ResolveURL ---
+message ResolveURLRequest {
+  string code = 1;
+}
+
+message ResolveURLResponse {
+  string url = 1;
+}
+
+// --- DeleteURL ---
+message DeleteURLRequest {
+  string code = 1;
+}
+
+message DeleteURLResponse {
+  string message = 1;
+}
