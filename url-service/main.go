@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"time"
 	"urlshortener/middleware"
+	"urlshortener/migration"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
@@ -42,7 +44,7 @@ func main() {
 	var err error
 
 	// ---- MySQL ----
-	dsn := "root:password@tcp(127.0.0.1:3306)/urlshortener?parseTime=true"
+	dsn := "root:@tcp(127.0.0.1:3306)/urlshortener?parseTime=true&loc=Asia%2FKolkata"
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal("DB connection error:", err)
@@ -62,6 +64,12 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 	r.Use(middleware.RequestLogger()) // added logger middleware
 
 	// Create short URL
@@ -72,16 +80,19 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
-
 		if req.ExpiryMinutes <= 0 {
 			req.ExpiryMinutes = 1440
 		}
-
-		expiresAt := time.Now().Add(time.Duration(req.ExpiryMinutes) * time.Minute)
+		loc, err := time.LoadLocation("Asia/Kolkata")
+		if err != nil {
+			// fallback or hard fail
+			loc = time.FixedZone("IST", 5*60*60+30*60) // UTC+5:30 manually
+		}
+		expiresAt := time.Now().In(loc).Add(time.Duration(req.ExpiryMinutes) * time.Minute)
 		code := generateShortCode(req.URL)
 
 		// Insert into MySQL
-		_, err := db.Exec(
+		_, err = db.Exec(
 			"INSERT INTO urls (short_code, long_url, expires_at) VALUES (?, ?, ?)",
 			code,
 			req.URL,
@@ -92,7 +103,6 @@ func main() {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Insert failed"})
 			return
 		}
-
 		// Write-through cache (TTL = expiry)
 		err = rdb.Set(
 			ctx,
@@ -103,7 +113,6 @@ func main() {
 		if err != nil {
 			log.Println("Redis write failed:", err)
 		}
-
 		c.JSON(http.StatusOK, gin.H{
 			"short_code": code,
 			"expires_at": expiresAt,
@@ -142,7 +151,7 @@ func main() {
 		var isActive bool
 
 		err = db.QueryRow(
-			"SELECT long_url, expires_at FROM urls WHERE short_code = ?",
+			"SELECT long_url, expires_at, is_active FROM urls WHERE short_code = ?",
 			code,
 		).Scan(&longURL, &expiresAt, &isActive)
 
@@ -182,7 +191,7 @@ func main() {
 		result, err := db.Exec(`
 			UPDATE urls
 			SET is_active = false
-			WHERE short_url = $1
+			WHERE short_code = ?
 		`, code)
 
 		if err != nil {
@@ -204,5 +213,6 @@ func main() {
 
 		c.JSON(http.StatusOK, gin.H{"message": "Url deleted successfully"})
 	})
+	migration.RunMigrations(db)
 	r.Run(":8080")
 }

@@ -11,6 +11,7 @@ app.post("/shorten", async (req, res) => {
   try {
     const response = await axios.post(`${GO_SERVICE}/shorten`, {
       url: req.body.url,
+      expiry_minutes: req.body.expiry_minutes
     });
 
     res.json({

@@ -121,3 +121,7 @@ def detect_malicious(request: DetectionRequest):
 @app.get("/ai/flagged")
 def get_flagged_urls():
     return flagged_urls
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("analytics:app", host="0.0.0.0", port=8000, reload=True)
