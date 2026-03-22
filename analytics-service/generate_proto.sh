@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # Run from analytics-service/ root
-# Requires: pip install grpcio-tools
+# Requires: pip3 install grpcio-tools
 
-python -m grpc_tools.protoc \
+python3 -m grpc_tools.protoc \
   -I./proto \
-  --python_out=./generated \
-  --grpc_python_out=./generated \
+  --python_out=. \
+  --grpc_python_out=. \
   proto/analytics.proto
-
-echo "Generated files in ./generated/"

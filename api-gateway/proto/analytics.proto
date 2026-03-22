@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package analytics;
+
+option go_package = "urlshortener/proto/analytics";
+
+service Analytics {
+  rpc TrackClick(TrackClickRequest)       returns (TrackClickResponse);
+  rpc GetStats(GetStatsRequest)           returns (GetStatsResponse);
+  rpc DetectMalicious(DetectRequest)      returns (DetectResponse);
+  rpc GetFlaggedURLs(EmptyRequest)        returns (FlaggedURLsResponse);
+}
+
+// --- TrackClick ---
+message TrackClickRequest {
+  string code = 1;
+  string url  = 2;
+  string ip   = 3;
+}
+
+message TrackClickResponse {
+  string message     = 1;
+  double fraud_score = 2;
+}
+
+// --- GetStats ---
+message GetStatsRequest {
+  string code = 1;
+}
+
+message GetStatsResponse {
+  int32 clicks = 1;
+}
+
+// --- DetectMalicious ---
+message DetectRequest {
+  string url = 1;
+  string ip  = 2;
+}
+
+message DetectResponse {
+  string url          = 1;
+  double fraud_score  = 2;
+  bool   is_malicious = 3;
+}
+
+// --- GetFlaggedURLs ---
+message EmptyRequest {}
+
+message FlaggedURLEntry {
+  string url         = 1;
+  double fraud_score = 2;
+}
+
+message FlaggedURLsResponse {
+  repeated FlaggedURLEntry flagged = 1;
+}

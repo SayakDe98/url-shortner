@@ -6,7 +6,9 @@ from typing import Dict
 import grpc
 
 # Generated from: python -m grpc_tools.protoc (see generate_proto.sh)
-from generated import analytics_pb2, analytics_pb2_grpc
+# from generated import analytics_pb2, analytics_pb2_grpc
+import analytics_pb2
+import analytics_pb2_grpc
 
 # ---------------------------------------------------------------------------
 # In-memory stores
