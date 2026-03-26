@@ -57,7 +57,6 @@ func main() {
 		Ctx: ctx,
 	})
 
-	// Enable reflection so tools like grpcurl / Postman can introspect the API.
 	reflection.Register(grpcServer)
 
 	log.Println("gRPC server listening on :50051")
