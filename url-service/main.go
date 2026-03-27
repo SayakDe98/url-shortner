@@ -44,7 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to listen:", err)
 	}
-
+	// creates new grp server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			loggingInterceptor, // replaces the old gin middleware.RequestLogger()
